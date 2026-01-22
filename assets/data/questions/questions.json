@@ -11,25 +11,6 @@
     "isMock": true,
     "isDel": true
   },
-  "questionFiles": [
-    {
-      "id": "sample",
-      "displayName": "範例題庫",
-      "fileName": "sample.json",
-      "isQuestionFile": true
-    }
-  ],
-  "questionListFiles": [
-    {
-      "typeName": "sample_group",
-      "displayName": "範例分組",
-      "items": [
-        {
-          "series_no": "sample",
-          "displayName": "範例題庫",
-          "file": "sample.json"
-        }
-      ]
-    }
-  ]
+  "questionFiles": [],
+  "questionListFiles": []
 }

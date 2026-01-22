@@ -138,21 +138,34 @@ export class DownloadService {
     const description = findVal(item, ['description', '描述', '說明', '簡介']) || item.Description || item.description;
     const updateDate = findVal(item, ['updatedate', '更新日期', '日期']) || item.UpdateDate || item.updateDate;
     
-    // 檢查是否有 JSON 連結，或者 SheetId 本身就是一個連結
-    let jsonUrl = findVal(item, ['jsonurl', 'url', 'json連結', '網址', 'jsonpath']);
-    const rawSheetId = (item.SheetId || '').toString();
+    // 1. 取得原始網址並清理前後空格
+    let jsonUrl = (findVal(item, ['jsonurl', 'url', 'json連結', '網址', 'jsonpath']) || '').toString().trim();
+    const rawSheetId = (item.SheetId || '').toString().trim();
     
-    // 如果 SheetId 是完整網址，將其視為 jsonUrl
+    // 2. 如果 SheetId 是完整網址，將其視為 jsonUrl
     if (rawSheetId.startsWith('http')) {
       jsonUrl = rawSheetId;
     }
 
-    // 處理 Google Drive 檔案連結，轉換為直接下載網址
-    if (jsonUrl && jsonUrl.includes('drive.google.com')) {
-      const driveIdMatch = jsonUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    // 3. 處理 Google Drive 檔案連結，轉換為直接下載網址 (支援多種 Drive 網址格式)
+    if (jsonUrl && (jsonUrl.includes('drive.google.com') || jsonUrl.includes('docs.google.com'))) {
+      const driveIdMatch = jsonUrl.match(/\/(?:d|open|file\/d)\/([a-zA-Z0-9_-]+)/) || jsonUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
       if (driveIdMatch && driveIdMatch[1]) {
         jsonUrl = `https://drive.google.com/uc?export=download&id=${driveIdMatch[1]}`;
       }
+    }
+
+    // 4. 自動處理 GitHub 網址，將 blob 連結轉換為 raw 連結
+    if (jsonUrl && jsonUrl.includes('github.com') && jsonUrl.includes('/blob/')) {
+      jsonUrl = jsonUrl
+        .replace('github.com', 'raw.githubusercontent.com')
+        .replace('/blob/', '/');
+    }
+
+    // 5. 針對 Web 環境 (localhost) 加入 CORS 代理 (解決 GitHub/Drive 在瀏覽器的限制)
+    if (jsonUrl && typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
+      console.log('Web environment detected, using CORS proxy for:', jsonUrl);
+      jsonUrl = `https://corsproxy.io/?${encodeURIComponent(jsonUrl)}`;
     }
 
     const normalizedItem = {
@@ -166,8 +179,11 @@ export class DownloadService {
     try {
       if (jsonUrl) {
         onProgress?.('正在下載 JSON 題庫...');
+        console.log(`Final Fetch URL: ${jsonUrl}`);
         const response = await fetch(jsonUrl);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`下載失敗 (HTTP ${response.status})，請確認連結是否正確或檔案已公開`);
+        }
         
         const data = await response.json();
 

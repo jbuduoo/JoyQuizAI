@@ -18,8 +18,7 @@ export const getQuestionData = async (fileName: string) => {
  */
 const getStaticQuestionData = (fileName: string) => {
   switch (fileName) {
-    case 'sample.json':
-      return require('../../assets/data/questions/sample.json');
+    // 已關閉內置 sample.json，改用下載資料
     default:
       return null;
   }

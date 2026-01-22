@@ -106,9 +106,9 @@ const HomeScreen = () => {
       let dynamicGroups: QuestionGroup[] = [];
       let dynamicCategories: Category[] = [];
 
-      if (isListMode && questionsIndex.questionListFiles) {
+      if (isListMode) {
         // 2a. 處理分組模式
-        const groups = await Promise.all(questionsIndex.questionListFiles.map(async (group: any) => {
+        const initialGroups = (questionsIndex.questionListFiles || []).map(async (group: any) => {
           const items = await Promise.all((group.items || []).map(async (item: any) => {
             const questions = await getCachedData(item.file);
             const firstQ = questions[0];
@@ -125,21 +125,32 @@ const HomeScreen = () => {
             displayName: items.find(i => i.l1Name)?.l1Name || group.displayName || group.typeName,
             items: items,
           };
-        }));
-        dynamicGroups = groups;
+        });
+        
+        dynamicGroups = await Promise.all(initialGroups);
 
         // 加入已下載檔案到分組
-        downloadedFiles.forEach(async (file) => {
-          const group = dynamicGroups.find(g => g.typeName === file.category);
-          if (group && !group.items.find(i => i.series_no === file.id)) {
+        for (const file of downloadedFiles) {
+          let group = dynamicGroups.find(g => g.typeName === file.category);
+          if (!group) {
+            group = {
+              typeName: file.category || '未分類',
+              displayName: file.category || '其他題庫',
+              items: []
+            };
+            dynamicGroups.push(group);
+          }
+          
+          if (!group.items.find(i => i.series_no === file.id)) {
+            const questions = await getCachedData(file.fileName);
             group.items.push({
               series_no: file.id,
               displayName: file.displayName,
               file: file.fileName,
-              total: 0,
+              total: questions.length,
             } as any);
           }
-        });
+        }
       } else {
         // 2b. 處理單層模式
         dynamicCategories = await Promise.all(questionsIndex.questionFiles
